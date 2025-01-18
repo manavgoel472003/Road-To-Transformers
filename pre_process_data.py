@@ -52,8 +52,30 @@ class Data:
         Y = torch.tensor(Y)
 
         return X, Y
+    
+    def build_dataset_rnn(self, context_size=6, line_tokens=None):
+        X = []
+        if not line_tokens:
+            line_tokens = self.line_tokens
+        for line in self.line_tokens:
+            line = [self.special_char] + line + [self.special_char]
+            window = [self.wtoi[w] for w in line[0:context_size]]
+            if len(window) == context_size:
+                X.append(window)
+            else:
+                continue
+            for i in range(context_size, len(line)):
+                X.append(window)
+                window = window[1:] + [self.wtoi[line[i]]]
+            X.append(window)
 
-    def build_dataset_w_split(self, context_size=4, train_split=0.95, val_split=0.025, test_split=0.025, random_seed=42) -> None:
+        X = torch.tensor(X)
+
+        return X, None
+
+            
+
+    def build_dataset_w_split(self, context_size=6, train_split=0.95, val_split=0.025, test_split=0.025, random_seed=42, rnn=False) -> None:
         """
         - This function will make splits of the dataset, based on given by user or deault.
         - It also take context_size, that is X's no. of features.
@@ -63,8 +85,10 @@ class Data:
         random.shuffle(self.line_tokens)
         total_length = len(self.line_tokens)
         n1, n2 = int(train_split*total_length), int((train_split+val_split)*total_length)
-        self.Xtr, self.Ytr = self.build_dataset(line_tokens=self.line_tokens[:n1], context_size=context_size)
-        self.Xdev, self.Ydev = self.build_dataset(line_tokens=self.line_tokens[n1:n2], context_size=context_size)
-        self.Xte, self.Yte = self.build_dataset(line_tokens=self.line_tokens[n2:], context_size=context_size)
+        
+        func = self.build_dataset_rnn if rnn else self.build_dataset
+        self.Xtr, self.Ytr = func(line_tokens=self.line_tokens[:n1], context_size=context_size)
+        self.Xdev, self.Ydev = func(line_tokens=self.line_tokens[n1:n2], context_size=context_size)
+        self.Xte, self.Yte = func(line_tokens=self.line_tokens[n2:], context_size=context_size)
 
 

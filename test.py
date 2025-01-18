@@ -9,14 +9,14 @@ CONTEXT_SIZE = 5
 BATCH_SIZE = 128
 learning_rate = 5e-4
 MAX_EPOCHS = 300000
-MODEL_PATH = "n_gram_weights.pth"
+MODEL_PATH = "stored_weights/n_gram_weights.pth"
 
 data = pre_process_data.Data("story.txt", expand_factor=10) # i did 10, because the data set overfits due to being small
 data.build_dataset_w_split(context_size=CONTEXT_SIZE)
 
 embed_size = int(data.vocab_size ** 0.4)
-hidden_size = [100, 100]
-model = models.N_Gram(vocab_size=data.vocab_size, context_size=CONTEXT_SIZE, hidden_sizes=hidden_size, embd_size=embed_size)
+hidden_sizes = [100, 100]
+model = models.N_Gram(vocab_size=data.vocab_size, context_size=CONTEXT_SIZE, hidden_sizes=hidden_sizes, embd_size=embed_size)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model.train()
@@ -28,10 +28,10 @@ model = train_eval.train_model(model, data.Xtr, data.Ytr, batch_size=BATCH_SIZE,
 model.eval()
 
 print("Validation")
-train_eval.evaluate_split(model, data.Xdev, data.Ydev)
+train_eval.evaluate_split(model, data.Xdev, data.Ydev, device=device)
 
 def generate_output(model: torch.nn.Module, itow,context_size, num_of_samples=5, device="cpu"):
-    for i in range(num_of_samples):
+    for _ in range(num_of_samples):
         context_window = [0]* context_size
         out = []
         model.to(device)

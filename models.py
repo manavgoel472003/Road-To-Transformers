@@ -30,3 +30,45 @@ class N_Gram(nn.Module):
         x_embd = self.embedding(x).view(x.shape[0], -1)
         x = self.net(x_embd)
         return x
+    
+class RNN_Block(nn.Module):
+
+    def __init__(self, embed_size, hidden_size, vocab_size):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.in2hidden = layer_init(nn.Linear(embed_size + hidden_size, hidden_size), n_linearity="tanh")
+        self.bacth_norm = nn.LayerNorm(hidden_size)
+        self.in2out = layer_init(nn.Linear(embed_size + hidden_size, vocab_size), n_linearity="linear",weight_fill=0.01)
+
+    def forward(self, x, a):
+        # print(x.shape, a.shape)
+        combined = torch.cat((x, a), dim=-1)
+        a_hat = self.bacth_norm(F.tanh(self.in2hidden(combined)))
+        y = self.in2out(combined)
+
+        return y, a_hat
+    
+    def init_hidden(self, batch_size, device="cpu"):
+        return nn.init.kaiming_uniform_(torch.empty(batch_size, self.hidden_size, device=device))
+    
+
+class SimpleRNN(nn.Module):
+    
+    def __init__(self, embed_size, hidden_size, vocab_size, device="cpu"):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_size)
+        self.block = RNN_Block(embed_size, hidden_size, vocab_size)
+        self.hidden_size = hidden_size
+        self.device = device
+    
+    def forward(self, x):
+        x = self.embedding(x)
+        batch_size, sequence_length, _ = x.shape
+        hidden_state = self.block.init_hidden(batch_size, self.device)
+        out, hid = [], []
+        for t in range(sequence_length):
+            output, hidden_state = self.block(x[:,t,:], hidden_state)
+            out.append(output)
+            hid.append(hidden_state)
+        return out, hid
+        
