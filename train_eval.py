@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
-def train_model(model: torch.nn.Module, X, Y, seq=False, batch_size=128, lr=5e-4, epochs=300000, plot_loss=False, device="cpu", save_path_name=None):
+def train_model(model: torch.nn.Module, X, Y, seq=False, trans=False, batch_size=128, lr=5e-4, epochs=300000, plot_loss=False, device="cpu", save_path_name=None):
     lossi = []
     model.to(device);
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -20,6 +20,8 @@ def train_model(model: torch.nn.Module, X, Y, seq=False, batch_size=128, lr=5e-4
                 total_loss += loss
 
             loss = total_loss/len(out)
+        elif trans:
+            logits, loss = model(Xb, Yb)
         else:
             logits = model(Xb)
             loss = F.cross_entropy(logits, Yb)
@@ -45,7 +47,7 @@ def train_model(model: torch.nn.Module, X, Y, seq=False, batch_size=128, lr=5e-4
     return model
 
 @torch.no_grad()
-def evaluate_split(model: torch.nn.Module, x, y, seq=False, device="cpu"):
+def evaluate_split(model: torch.nn.Module, x, y, seq=False, trans=False, device="cpu"):
     model.to(device);
     criterion = torch.nn.CrossEntropyLoss()
     x, y = x.to(device), y.to(device)
@@ -57,6 +59,8 @@ def evaluate_split(model: torch.nn.Module, x, y, seq=False, device="cpu"):
             loss = criterion(output, y) 
             total_loss += loss
         loss = total_loss/len(out)
+    if trans:
+        logits, loss = model(x, y)
     else:
         logits = model(x)
         loss = F.cross_entropy(logits, y)

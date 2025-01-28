@@ -1,9 +1,10 @@
 import re
 import torch
 import random
+from torch.nn.utils.rnn import pad_sequence
 
 class Data:
-    def __init__(self, path, expand_factor=1, special_char="<.>"):
+    def __init__(self, path, expand_factor=1, special_char="<.>", pad=None):
         """
         - Takes a .txt file and tokenises the complete text
         - Has two dictionaries, [wtoi] to convert words to integer and [itow] to do the vice versa
@@ -23,6 +24,8 @@ class Data:
 
         vocab = sorted(list(set(text_tokens)))
         self.special_char = special_char
+        if pad:
+            vocab.append(pad)
         
         self.wtoi = {w: i+1 for i, w in enumerate(vocab)}
         self.wtoi[self.special_char] = 0
@@ -72,10 +75,19 @@ class Data:
         X = torch.tensor(X)
 
         return X, None
+    
+    def build_dataset_transformer(self, line_tokens, context_size=None):
+        encode = lambda sen, word_to_ind: [word_to_ind[word] for word in sen]
+        encoded_text = [torch.tensor(encode(sen, self.wtoi)) for sen in line_tokens]
+        pad_index = self.vocab_size - 1
+        enc_data = pad_sequence(encoded_text, batch_first=True, padding_value=pad_index)
+        X = torch.tensor(enc_data[:,:-1])
+        Y = torch.tensor(enc_data[:, 1:])
+        return X, Y
 
             
 
-    def build_dataset_w_split(self, context_size=6, train_split=0.95, val_split=0.025, test_split=0.025, random_seed=42, rnn=False) -> None:
+    def build_dataset_w_split(self, context_size=6, train_split=0.95, val_split=0.025, test_split=0.025, random_seed=42, mode=None) -> None:
         """
         - This function will make splits of the dataset, based on given by user or deault.
         - It also take context_size, that is X's no. of features.
@@ -86,7 +98,7 @@ class Data:
         total_length = len(self.line_tokens)
         n1, n2 = int(train_split*total_length), int((train_split+val_split)*total_length)
         
-        func = self.build_dataset_rnn if rnn else self.build_dataset
+        func = {"rnn" : self.build_dataset_rnn, "transformer": self.build_dataset_transformer, None : self.build_dataset}[mode]
         self.Xtr, self.Ytr = func(line_tokens=self.line_tokens[:n1], context_size=context_size)
         self.Xdev, self.Ydev = func(line_tokens=self.line_tokens[n1:n2], context_size=context_size)
         self.Xte, self.Yte = func(line_tokens=self.line_tokens[n2:], context_size=context_size)
